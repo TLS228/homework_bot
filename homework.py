@@ -3,9 +3,9 @@ import os
 import time
 from http import HTTPStatus
 
-import requests
+import requests  #type: ignore
 from dotenv import load_dotenv
-from telebot import TeleBot
+from telebot import TeleBot  #type: ignore
 
 from exceptions import AbsentEnvironmentVariable, ResponseNot200
 
