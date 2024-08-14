@@ -41,7 +41,7 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Проверяем доступность переменных окружения"""
+    """Проверяем доступность переменных окружения."""
     if not TELEGRAM_TOKEN:
         raise AbsentEnvironmentVariable('TELEGRAM_TOKEN')
     if not TELEGRAM_CHAT_ID:
@@ -51,7 +51,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Отправка сообщений в Telegram"""
+    """Отправка сообщений в Telegram."""
     logger.debug(f'Отправка сообщения: {message}')
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
@@ -61,7 +61,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получение данных из Yandex.Practicum"""
+    """Получение данных из Yandex.Practicum."""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     payload = {'from_date': timestamp}
     try:
@@ -74,7 +74,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверяет ответ API.Yandex.Practicum"""
+    """Проверяет ответ API.Yandex.Practicum."""
     if not isinstance(response, dict):
         raise TypeError(f'responce is not a dict, this is {type(response)}')
     if 'homeworks' not in response:
@@ -86,7 +86,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлечение информации из homeworks"""
+    """Извлечение информации из homeworks."""
     if 'status' not in homework:
         raise KeyError('status not in homework')
     if 'homework_name' not in homework:
