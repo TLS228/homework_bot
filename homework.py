@@ -86,7 +86,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлекает информацию из homeworks"""
+    """Извлечение информации из homeworks"""
     if 'status' not in homework:
         raise KeyError('status not in homework')
     if 'homework_name' not in homework:
@@ -100,7 +100,7 @@ def parse_status(homework):
 
 
 def main():
-    """Основная логика работы бота"""
+    """Основные функции работы бота"""
     try:
         check_tokens()
     except AbsentEnvironmentVariable as error:
