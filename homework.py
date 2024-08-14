@@ -3,9 +3,9 @@ import os
 import time
 from http import HTTPStatus
 
-import requests  #type: ignore
+import requests
 from dotenv import load_dotenv
-from telebot import TeleBot  #type: ignore
+from telebot import TeleBot
 
 from exceptions import AbsentEnvironmentVariable, ResponseNot200
 
@@ -100,7 +100,7 @@ def parse_status(homework):
 
 
 def main():
-    """Основные функции работы бота"""
+    """Основная логика работы бота."""
     try:
         check_tokens()
     except AbsentEnvironmentVariable as error:
