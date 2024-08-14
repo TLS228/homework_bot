@@ -69,7 +69,8 @@ def get_api_answer(timestamp):
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
         if response.status_code != HTTPStatus.OK:
             raise ResponseNot200(
-                f'Ошибка {response.status_code} при запросе к {ENDPOINT} с параметрами {payload}'
+                f'Ошибка {response.status_code} при запросе к {ENDPOINT} '
+                f'с параметрами {payload}'
             )
         return response.json()
     except requests.RequestException as error:
@@ -132,7 +133,8 @@ def main():
         except (requests.exceptions.RequestException,
                 TeleBot.apihelper.ApiException) as bot_api_error:
             logger.error(
-                f'Ошибка при работе с API Telegram или запросом: {bot_api_error}'
+                f'Ошибка при работе с API Telegram или запросом: '
+                f'{bot_api_error}'
             )
         except Exception as error:
             error_message = f'Сбой в работе программы: {error}'
