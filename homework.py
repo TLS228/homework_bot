@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 from http import HTTPStatus
 
@@ -12,16 +13,15 @@ from exceptions import AbsentEnvironmentVariable, ResponseNot200
 load_dotenv()
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='program.log',
-    filemode='w',
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
-logger.addHandler(
-    logging.StreamHandler()
-)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler = logging.FileHandler('program.log', mode='w')
+file_handler.setFormatter(formatter)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -42,12 +42,14 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверяем доступность переменных окружения."""
-    if not TELEGRAM_TOKEN:
-        raise AbsentEnvironmentVariable('TELEGRAM_TOKEN')
-    if not TELEGRAM_CHAT_ID:
-        raise AbsentEnvironmentVariable('TELEGRAM_CHAT_ID')
-    if not PRACTICUM_TOKEN:
-        raise AbsentEnvironmentVariable('PRACTICUM_TOKEN')
+    tokens = ['PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID']
+    missing_tokens = [token for token in tokens if not globals().get(token)]
+    if missing_tokens:
+        missing_str = ', '.join(missing_tokens)
+        logger.critical(f'Отсутствуют следующие токены: {missing_str}')
+        raise AbsentEnvironmentVariable(
+            f'Отсутствуют следующие токены: {missing_str}'
+        )
 
 
 def send_message(bot, message):
@@ -61,39 +63,39 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получение данных из Yandex.Practicum."""
-    headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+    """Начало отправки запроса и успешное получение ответа."""
     payload = {'from_date': timestamp}
     try:
-        response = requests.get(ENDPOINT, headers=headers, params=payload)
+        response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
+        if response.status_code != HTTPStatus.OK:
+            raise ResponseNot200(
+                f'Ошибка {response.status_code} при запросе к {ENDPOINT} с параметрами {payload}'
+            )
+        return response.json()
     except requests.RequestException as error:
-        logger.error(f'Сбой в работе программы {error}')
-    if response.status_code != HTTPStatus.OK:
-        raise ResponseNot200
-    return response.json()
+        raise Exception(f'Сбой в работе программы: {error}')
 
 
 def check_response(response):
-    """Проверяет ответ API.Yandex.Practicum."""
+    """Проверка корректности структуры ответа API."""
     if not isinstance(response, dict):
-        raise TypeError(f'responce is not a dict, this is {type(response)}')
+        raise TypeError(f'response is not a dict, this is {type(response)}')
     if 'homeworks' not in response:
-        raise KeyError('homeworks not in response')
+        raise KeyError('Ключ "homeworks" отсутствует в ответе')
     homeworks = response['homeworks']
     if not isinstance(homeworks, list):
         raise TypeError(f'homeworks is not a list, this is {type(homeworks)}')
-    return homeworks
 
 
 def parse_status(homework):
-    """Извлечение информации из homeworks."""
+    """Начало исполнения функции и ее завершение."""
     if 'status' not in homework:
         raise KeyError('status not in homework')
     if 'homework_name' not in homework:
         raise KeyError('homework_name not in homework')
     status = homework['status']
     if status not in HOMEWORK_VERDICTS:
-        raise KeyError('status not in HOMEWORK_VERDICTS')
+        raise ValueError(f'Получен недокументированный статус: {status}')
     homework_name = homework['homework_name']
     verdict = HOMEWORK_VERDICTS[status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -106,25 +108,38 @@ def main():
     except AbsentEnvironmentVariable as error:
         logger.critical(error)
         quit()
+
     bot = TeleBot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    errors = True
+    last_error_message = ''
+
     while True:
         try:
             response = get_api_answer(timestamp)
-            homework = check_response(response)
-            if homework:
-                homework = homework[0]
-                message = parse_status(homework)
-                send_message(bot, message)
-            else:
+            check_response(response)
+            homeworks = response['homeworks']
+            if not homeworks:
                 logger.debug('Список домашних работ пуст')
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            if errors:
-                errors = False
+                continue
+            homework = homeworks[0]
+            message = parse_status(homework)
+            if message != last_error_message:
                 send_message(bot, message)
-            logger.critical(message)
+                last_error_message = message
+                timestamp = response.get('current_date', timestamp)
+            else:
+                logger.debug('Повторяющееся сообщение не отправлено.')
+        except (requests.exceptions.RequestException,
+                TeleBot.apihelper.ApiException) as bot_api_error:
+            logger.error(
+                f'Ошибка при работе с API Telegram или запросом: {bot_api_error}'
+            )
+        except Exception as error:
+            error_message = f'Сбой в работе программы: {error}'
+            if error_message != last_error_message:
+                send_message(bot, error_message)
+                last_error_message = error_message
+            logger.exception(f'Сбой в работе программы: {error}')
         finally:
             time.sleep(RETRY_PERIOD)
 
